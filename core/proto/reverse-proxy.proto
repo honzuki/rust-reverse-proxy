@@ -3,25 +3,64 @@ syntax = "proto3";
 package rrp;
 
 service ReverseProxy {
-    rpc BindTCP(TcpBindData)
+    // Binds a new tcp port
+    rpc BindTcp(TcpBindRequest)
+        returns (stream TcpBindResponse);
+
+    // Accept an incoming tcp connection
+    //
+    // this is used to create a duplex channel between the client 
+    // and a random new connection that has been made to the proxy
+    rpc AcceptTcpConnection(stream TcpAcceptRequest)
         returns (stream Packet);
+}
+
+////
+// Bind TCP
+////
+message TcpBindRequest {
+    // If a port is not present, will let the OS to
+    // choose an open port
+    optional int32 port = 1;
+}
+
+message TcpBindResponseMetadata {
+    // The port that the new tcp server is listening on
+    int32 port = 1;
+}
+
+message TcpNewConnection {
     
-    rpc BindUDP(UdpBindData)
-        returns (stream Datagram);
 }
 
-message TcpBindData {
-    optional int32 port = 1;
+// The first message will always contain a metadata field,
+// and all other messages will contain information about new connections to the server
+message TcpBindResponse {
+    oneof response {
+        TcpBindResponseMetadata metadata = 1;
+        TcpNewConnection connection = 2;
+    }
 }
 
-message UdpBindData {
-    optional int32 port = 1;
+
+////
+// Accept TCP connections
+////
+message TcpAcceptRequestMetadata {
+    int32 port = 1;
 }
 
 message Packet {
+    // The raw bytes
     bytes data = 1;
 }
 
-message Datagram {
-    bytes data = 1;
+
+// The first message will always contain a metadata field,
+// and all other messages will contain a packet that needs to be forwarded to the user
+message TcpAcceptRequest {
+    oneof request {
+        TcpAcceptRequestMetadata metadata = 1;
+        Packet packet = 2;
+    }
 }

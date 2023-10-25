@@ -1,0 +1,20 @@
+[package]
+name = "rrp-server"
+version = "0.1.0"
+edition = "2021"
+
+# See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
+
+[dependencies]
+rrp = { path = "../core" }
+
+clap = { version = "4.4.7", features = ["derive"] }
+tokio = { version = "1.33.0", features = ["macros", "net", "rt-multi-thread"] }
+anyhow = "1.0.75"
+toml = "0.8.4"
+serde = { version = "1.0.189", features = ["derive"] }
+rcgen = "0.11.3"
+tonic = { version = "0.10.2", features = ["tls"] }
+tokio-stream = "0.1.14"
+async-stream = "0.3.5"
+dashmap = "5.5.3"
