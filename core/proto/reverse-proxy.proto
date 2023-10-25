@@ -1,0 +1,27 @@
+syntax = "proto3";
+
+package rrp;
+
+service ReverseProxy {
+    rpc BindTCP(TcpBindData)
+        returns (stream Packet);
+    
+    rpc BindUDP(UdpBindData)
+        returns (stream Datagram);
+}
+
+message TcpBindData {
+    optional int32 port = 1;
+}
+
+message UdpBindData {
+    optional int32 port = 1;
+}
+
+message Packet {
+    bytes data = 1;
+}
+
+message Datagram {
+    bytes data = 1;
+}
