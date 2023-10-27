@@ -60,8 +60,7 @@ impl ConfigFile {
     //
     // if a config file is not present it will generate a new file using the default values.
     fn parse_config() -> anyhow::Result<ConfigFile> {
-        let config_dir = project_dir().config_dir();
-        let config_path = config_dir.join(SERVER_CONFIG_FILE_NAME);
+        let config_path = project_dir().config_dir().join(SERVER_CONFIG_FILE_NAME);
 
         if !config_path.exists() {
             let default_config = ConfigFile::default();

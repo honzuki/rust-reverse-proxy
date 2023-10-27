@@ -7,7 +7,7 @@ use std::{
 
 use anyhow::Context;
 use dashmap::DashMap;
-use rrp::auth::{hash_token, TokenHash, METADATA_KEY};
+use rrp::auth::{hash_token, TokenHash, METADATA_TOKEN};
 use serde::{Deserialize, Serialize};
 use tonic::{service::interceptor::InterceptedService, Request, Status};
 
@@ -39,13 +39,13 @@ impl Auth {
             let _ = std::fs::create_dir_all(base);
             if let Ok(mut file) = File::create(base.join(TEMPLATE_CLIENTS_FILE_NAME)) {
                 let mock_data = toml::toml! {
-                    [identifier]
-                    hashed_key = "<An hex encoded hashed version of the client's key>"
+                    [A_unique_client_identifier]
+                    hashed_token = "<An hex encoded hashed version of the client's token>"
                 };
                 let _ = file.write_all(toml::to_string_pretty(&mock_data).unwrap().as_bytes());
             }
 
-            eprintln!("the clients file is missing, server will reject all requests");
+            eprintln!("The clients file is missing, server will reject all requests");
             return Ok(Auth::default());
         };
 
@@ -87,7 +87,7 @@ pub fn attach_auth<S>(
         // fetch token from request & authenticate
         let client = request
             .metadata()
-            .get(METADATA_KEY)
+            .get(METADATA_TOKEN)
             .and_then(|token| token.to_str().ok())
             .and_then(|token| shared_auth.by_token(token));
 

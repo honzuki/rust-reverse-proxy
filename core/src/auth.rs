@@ -3,7 +3,7 @@ use sha2::{Digest, Sha512};
 
 const TOKEN_SIZE: usize = 512 / 8;
 
-pub const METADATA_KEY: &str = "authorization";
+pub const METADATA_TOKEN: &str = "authorization";
 pub type TokenHash = String;
 pub type Token = String;
 
