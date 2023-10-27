@@ -1,6 +1,7 @@
 use directories::ProjectDirs;
 use std::{fs::create_dir_all, sync::OnceLock};
 
+pub mod auth;
 pub mod grpc;
 pub mod tls;
 
