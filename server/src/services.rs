@@ -100,15 +100,22 @@ impl ReverseProxy for ReverseProxyService {
         // Create a stream that connects both ends of the connections together
         let output = async_stream::stream! {
             let mut data = vec![0u8; 4096];
+            let mut client_eof = false;
             loop {
                 select! {
-                    rcount = conn.read(&mut data) => {
+                    rcount = conn.read(&mut data), if !client_eof => {
                         match rcount {
-                            Err(_) | Ok(0) => continue,
+                            Err(_) => continue,
                             Ok(rcount) => {
                                 yield Ok(Packet {
                                     data: data[..rcount].to_vec()
-                                })
+                                });
+
+                                if rcount == 0 {
+                                    // the client has closed its writing part,
+                                    // the proxy-client is notified by receiving an empty Packet
+                                    client_eof = true;
+                                }
                             }
                         }
                     }
