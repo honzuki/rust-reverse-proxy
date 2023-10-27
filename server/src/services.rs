@@ -1,4 +1,4 @@
-use std::{future::Future, pin::Pin, task::Poll};
+use std::pin::Pin;
 
 use dashmap::DashMap;
 use rrp::grpc::{
@@ -55,8 +55,28 @@ impl ReverseProxy for ReverseProxyService {
         })?;
         let port = listener.local_addr()?.port();
 
-        // Create an async stream that accepts connections and inserts them inside a waiting queue
-        let output = AcceptConnectionsStream::new(listener, port, self.pending_connections);
+        // // Create an async stream that accepts connections and inserts them inside a waiting queue
+        // let output = AcceptConnectionsStream::new(listener, port, self.pending_connections);
+
+        let queue = self.pending_connections;
+        let output = async_stream::try_stream! {
+            // The first message needs to contain metadata
+            yield TcpBindResponse {
+                response: Some(tcp_bind_response::Response::Metadata(
+                    TcpBindResponseMetadata { port: port as i32 },
+                )),
+            };
+
+            loop {
+                let (conn, _) = listener.accept().await?;
+
+                // save the connection in the queue and let the client know that there is a new pending connection
+                queue.entry(port).or_default().push(conn);
+                yield TcpBindResponse {
+                    response: Some(tcp_bind_response::Response::Connection(TcpNewConnection {})),
+                }
+            }
+        };
 
         Ok(Response::new(Box::pin(output) as Self::BindTcpStream))
     }
@@ -149,67 +169,5 @@ impl ReverseProxy for ReverseProxyService {
         Ok(Response::new(
             Box::pin(output) as Self::AcceptTcpConnectionStream
         ))
-    }
-}
-
-// We need to implement this stream by hand to
-// be able to derive the `Drop` trait
-struct AcceptConnectionsStream {
-    listener: TcpListener,
-    port: u16,
-    queue: &'static ConnectionQueue,
-    mode: AcceptConnectionsStreamMode,
-}
-
-enum AcceptConnectionsStreamMode {
-    Metadata,
-    Connection,
-}
-
-impl AcceptConnectionsStream {
-    fn new(listener: TcpListener, port: u16, queue: &'static ConnectionQueue) -> Self {
-        Self {
-            listener,
-            port,
-            queue,
-            mode: AcceptConnectionsStreamMode::Metadata,
-        }
-    }
-}
-
-impl Stream for AcceptConnectionsStream {
-    type Item = Result<TcpBindResponse, Status>;
-    fn poll_next(
-        self: Pin<&mut Self>,
-        cx: &mut std::task::Context<'_>,
-    ) -> Poll<Option<Self::Item>> {
-        // The first message needs to contain metadata
-        if matches!(self.mode, AcceptConnectionsStreamMode::Metadata) {
-            let port = self.port as i32;
-            std::pin::pin!(self).mode = AcceptConnectionsStreamMode::Connection;
-            return Poll::Ready(Some(Ok(TcpBindResponse {
-                response: Some(tcp_bind_response::Response::Metadata(
-                    TcpBindResponseMetadata { port },
-                )),
-            })));
-        }
-
-        let (conn, _) = match std::pin::pin!(self.listener.accept()).poll(cx) {
-            Poll::Pending => return Poll::Pending,
-            Poll::Ready(result) => result,
-        }?;
-
-        // save the connection in the queue and let the client know that there is a new pending connection
-        self.queue.entry(self.port).or_default().push(conn);
-        Poll::Ready(Some(Ok(TcpBindResponse {
-            response: Some(tcp_bind_response::Response::Connection(TcpNewConnection {})),
-        })))
-    }
-}
-
-impl Drop for AcceptConnectionsStream {
-    fn drop(&mut self) {
-        // clean the queue at drop
-        self.queue.remove(&self.port);
     }
 }

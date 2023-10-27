@@ -41,7 +41,9 @@ pub mod tcp {
             })
             .expect("the first message from the server should always contain metadata");
 
-        println!("Reverse proxy listening on port: {}", metadata.port);
+        let external_port: u16 = metadata.port.try_into().unwrap();
+        println!("Reverse proxy listening on port: {}", external_port);
+        // we can trust the server to return a valid port number
 
         while let Some(message) = connections_stream.message().await? {
             if matches!(
@@ -51,7 +53,9 @@ pub mod tcp {
                 // The proxy received a new connection, we need to accept it on the client side
                 let server = server.clone();
                 tokio::spawn(async move {
-                    if let Err(reason) = accept_connection(server.clone(), local_port).await {
+                    if let Err(reason) =
+                        accept_connection(server.clone(), local_port, external_port).await
+                    {
                         eprintln!("A client connection was terminated: {}", reason);
                     }
                 });
@@ -61,7 +65,11 @@ pub mod tcp {
         Ok(())
     }
 
-    async fn accept_connection(server: Server, local_port: u16) -> anyhow::Result<()> {
+    async fn accept_connection(
+        server: Server,
+        local_port: u16,
+        external_port: u16,
+    ) -> anyhow::Result<()> {
         // open a seperate, new, connection to the proxy
         let mut client = ReverseProxyClient::new(server.open_grpc_channel().await?);
         // open a new connection to the local server
@@ -79,7 +87,7 @@ pub mod tcp {
             yield TcpAcceptRequest {
                 request: Some(tcp_accept_request::Request::Metadata(
                     TcpAcceptRequestMetadata {
-                        port: local_port as i32,
+                        port: external_port as i32,
                     },
                 )),
             };
