@@ -25,7 +25,7 @@ pub enum Commands {
         identifier: String,
 
         ///  The server address
-        #[arg(long, value_name = "http://[ip/domain]:port")]
+        #[arg(long, value_name = "https://[ip/domain]:port")]
         url: String,
 
         /// The path for the server tls certificate, in pem format
